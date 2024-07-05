@@ -59,31 +59,27 @@ def handle_websocket_client(client):
     while True:
         # Receive WebSocket frame
         frame = client.recv(1024)
+        
         if not frame:
             break
 
+        print("This is the frame we've been sent: ",frame)
+
         # Parse the frame
-        fin = frame[0] & 0x80
         opcode = frame[0] & 0x0F
-        masked = frame[1] & 0x80
         payload_len = frame[1] & 0x7F
 
-        if payload_len == 126:
-            payload_len = struct.unpack("!H", frame[2:4])[0]
-            mask_offset = 4
-        elif payload_len == 127:
-            payload_len = struct.unpack("!Q", frame[2:10])[0]
-            mask_offset = 10
-        else:
-            mask_offset = 2
+        if opcode == 0x08:  # Connection close
+            return None
+        if opcode == 0x01:  # Text frame
+            if payload_len <= 125:
+                mask_offset = 2
+            elif payload_len == 126:
+                mask_offset = 4
+            else:
+                mask_offset = 10
 
-        masks = frame[mask_offset:mask_offset + 4]
-        data = frame[mask_offset + 4:]
-
-        # Unmask the data
-        unmasked_data = bytearray(len(data))
-        for i in range(len(data)):
-            unmasked_data[i] = data[i] ^ masks[i % 4]
+        unmasked_data = frame[mask_offset:]
 
         # Handle frame based on opcode
         if opcode == OPCODE_TEXT:
