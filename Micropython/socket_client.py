@@ -52,7 +52,8 @@ def send_message(socket, message):
         encoded_message.append(127)
         encoded_message.extend(struct.pack('>Q', message_length))
     encoded_message.extend(message)
- 
+    print("enc_mess:", encoded_message)
+    print("len",len(encoded_message))
     # Send the encoded message
     socket.send(encoded_message)
  
@@ -78,7 +79,7 @@ def receive_message(socket):
  
 # Test the WebSocket client
 def main():
-    server_address = "0.0.0.0"
+    server_address = "192.168.1.165"
     port = 8080
  
     websocket = connect_websocket(server_address, port)
