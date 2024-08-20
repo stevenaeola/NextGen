@@ -1,8 +1,22 @@
+from picounicorn import PicoUnicorn
+picounicorn = PicoUnicorn()
+
 import usocket as socket
 import ustruct as struct
 
 import network
-
+​
+def circle(x,y,r,g,b,radius=1):
+    for i in range(floor(-radius), ceil(radius+1)):
+        for j in range(floor(-radius), ceil(radius+1)):
+            if i**2 + j**2 <= (radius*1.5)**2:
+                f = ((radius*1.5)**2 - i**2 - j**2)/((radius*1.5)**2)
+                f=f**1.5
+                print(f)
+                picounicorn.set_pixel(x+i,y+j,floor(r*f),floor(g*f),floor(b*f))
+            if i**2 + j**2 <= (radius*0.75)**2:
+                picounicorn.set_pixel(x+i,y+j,r,g,b)
+                
 def connect_to_wifi():
     sta_if = network.WLAN(network.STA_IF)
     if not sta_if.isconnected():
@@ -11,7 +25,9 @@ def connect_to_wifi():
         sta_if.connect("robotrouter", "")
         while not sta_if.isconnected():
             pass
+    
     print("Connected with IP: ", sta_if.ifconfig()[0])
+    circle(3,3,0,255,0)
     
 # Define WebSocket frame opcodes
 OPCODE_TEXT = const(0x1)
