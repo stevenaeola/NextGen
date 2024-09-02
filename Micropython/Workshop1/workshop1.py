@@ -21,17 +21,17 @@ pause = 3
 def clear():
     picounicorn.clear()
     
-
-def draw_square(x1,y1,size,colour):
-    draw_rectange(x1,y1,x1+size,y1+size,colour)
     
 def draw_rectangle(x1,y1,x2,y2,colour):
     (r,g,b) = colour
     for i in range(x1,x2+1):
         for j in range(y1,y2+1):
-            picounicorn.set_pixel(x1,y1,r,g,b)
+            picounicorn.set_pixel(i,j,r,g,b)
     
-def draw_circle(x1,y1,radius,colour):
+def draw_square(x1,y1,size,colour):
+    draw_rectangle(x1,y1,x1+size-1,y1+size-1,colour)
+    
+def draw_circle(x,y,radius,colour):
     (r,g,b) = colour
     for i in range(floor(-radius), ceil(radius+1)):
         for j in range(floor(-radius), ceil(radius+1)):
@@ -68,6 +68,7 @@ def wait_time_button(t):
         if picounicorn.is_pressed(picounicorn.BUTTON_Y):
             return True
     return False
+
 
 
 
