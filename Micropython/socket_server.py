@@ -1,11 +1,12 @@
 from picounicorn import PicoUnicorn
 picounicorn = PicoUnicorn()
 
+import os
 import usocket as socket
 import ustruct as struct
-
 import network
-​
+import ure
+
 def circle(x,y,r,g,b,radius=1):
     for i in range(floor(-radius), ceil(radius+1)):
         for j in range(floor(-radius), ceil(radius+1)):
@@ -27,14 +28,14 @@ def connect_to_wifi():
             pass
     
     print("Connected with IP: ", sta_if.ifconfig()[0])
-    circle(3,3,0,255,0)
+
     
 # Define WebSocket frame opcodes
 OPCODE_TEXT = const(0x1)
 OPCODE_CLOSE = const(0x8)
 
 # Define WebSocket server address and port
-SERVER_ADDRESS = '0.0.0.0'
+SERVER_ADDRESS = '192.168.1.177'
 SERVER_PORT = 8080
 
 def parse_websocket_header(header):
@@ -59,18 +60,27 @@ def generate_websocket_accept(key):
 def handle_websocket_client(client):
     # Read the first bytes of the request
     request = client.recv(1024)
+    print("message:",request)
     key = parse_websocket_header(request)
-
+    if key == None:
+        key = bytes("", 'utf-8')
+    print("key:",key)
     # Generate WebSocket accept key
     accept_key = generate_websocket_accept(key)
 
     # Send the WebSocket handshake response
-    response = b"HTTP/1.1 101 Switching Protocols\r\n"
-    response += b"Upgrade: websocket\r\n"
-    response += b"Connection: Upgrade\r\n"
-    response += b"Sec-WebSocket-Accept: " + accept_key + b"\r\n\r\n"
-    client.send(response)
+    #response = b"HTTP/1.1 101 Switching Protocols\r\n"
+    #response += b"Upgrade: websocket\r\n"
+    #response += b"Connection: Upgrade\r\n"
+    #response += b"Sec-WebSocket-Accept: " + accept_key + b"\r\n\r\n"
+    #client.send(response)
 
+    response = web_page()
+    client_socket.send("HTTP/1.1 200 OK\n")
+    client_socket.send("Content-Type: text/html\n")
+    client_socket.send("Connection: close\n\n")
+    client_socket.sendall(response)
+    
     # Start handling WebSocket frames
     while True:
         # Receive WebSocket frame
@@ -111,6 +121,121 @@ def handle_websocket_client(client):
     # Close the client connection
     client.close()
 
+# Variable to store the current arrow clicked
+current_arrow = {'direction': None}
+
+# HTML content for the webpage
+html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrow Buttons</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            text-align: center;
+        }
+        .arrow-buttons {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .arrow-button {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            background-color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .arrow-button:hover {
+            background-color: #ddd;
+        }
+        .output {
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="arrow-buttons">
+            <div class="arrow-button" onclick="sendArrow('Up')">↑</div>
+            <div class="arrow-button" onclick="sendArrow('Left')">←</div>
+            <div class="arrow-button" onclick="sendArrow('Right')">→</div>
+            <div class="arrow-button" onclick="sendArrow('Down')">↓</div>
+        </div>
+        <div class="output" id="output">Click an arrow</div>
+    </div>
+
+    <script>
+        function sendArrow(direction) {
+            fetch(`/set_arrow/${direction}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Arrow clicked:', direction);
+                    updateCurrentArrow();
+                });
+        }
+
+        function updateCurrentArrow() {
+            fetch('/get_arrow')
+                .then(response => response.json())
+                .then(data => {
+                    const output = document.getElementById('output');
+                    output.innerText = data.direction ? `Current arrow clicked: ${data.direction}` : 'Click an arrow';
+                });
+        }
+
+        // Initial call to set the output on page load
+        updateCurrentArrow();
+    </script>
+</body>
+</html>
+"""
+
+# Function to handle HTTP requests
+def handle_request(client_socket):
+    global current_arrow
+    request = client_socket.recv(1024)
+    request_str = str(request)
+    
+    if 'GET / ' in request_str:
+        response = html
+        content_type = 'text/html'
+    elif 'POST /set_arrow/' in request_str:
+        match = ure.search('/set_arrow/(\w+)', request_str)
+        if match:
+            current_arrow['direction'] = match.group(1)
+        response = '{"status": "success"}'
+        content_type = 'application/json'
+    elif 'GET /get_arrow' in request_str:
+        response = '{"direction": "' + (current_arrow['direction'] if current_arrow['direction'] else '') + '"}'
+        content_type = 'application/json'
+    else:
+        response = '404 Not Found'
+        content_type = 'text/plain'
+    
+    client_socket.send('HTTP/1.1 200 OK\r\nContent-Type: ' + content_type + '\r\n\r\n')
+    client_socket.send(response)
+    client_socket.close()
+
 connect_to_wifi()
 # Create a TCP socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -119,9 +244,12 @@ server_socket.listen(1)
 print("WebSocket server listening on", SERVER_ADDRESS, "port", SERVER_PORT)
 
 while True:
-    # Wait for incoming connections
-    client_socket, addr = server_socket.accept()
-    print("Client connected from:", addr)
-    
-    # Handle WebSocket client
-    handle_websocket_client(client_socket)
+    client_socket, client_address = server_socket.accept()
+    handle_request(client_socket)    
+    print(current_arrow)
+    #response = web_page()
+    #client_socket.send("HTTP/1.1 200 OK\n")
+    #client_socket.send("Content-Type: text/html\n")
+    #client_socket.send("Connection: close\n\n")
+    #client_socket.sendall(response)
+    #client_socket.close()
